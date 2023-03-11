@@ -1,5 +1,3 @@
-# ntp-watchdog
-
 This is a wifi-router watchdog based on an esp8266 wifi relay board. It will connect to ntp server and power cycle the wifi router when internet connection failed. This requires more communication than a simple ping. After restart it will wait 20+ hours before next trigger to avoid power cycle too frequencely.
 
 I used a board similar to the "HiLetgo ESP8266 WiFi Relay Module DC7-30V ESP-12F Network 5V Relay Module 220V 10A", which can be found on Amazon. I soldered pin headers of uart to program the board. Any esp8266/esp32 board can be used with the relay control pin redefined. The are some esp8266 relay boards come with usb programming interface, which will be easier to use.
