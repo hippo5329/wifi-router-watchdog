@@ -34,6 +34,11 @@
 #define WAIT_CONNECT 60
 #define RETRY 10
 
+#ifndef SYSLOG_SERVER
+#define SYSLOG_SERVER "192.168.1.50"
+#define SYSLOG_PORT 514
+#endif
+
 const char * ssid = STASSID; // your network SSID (name)
 const char * pass = STAPSK;  // your network password
 
@@ -50,6 +55,7 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
+WiFiUDP syslogUdp;
 
 void blink(unsigned long i, int t1, int t2) {
   for (unsigned long n = 0; n < i; n++) {
@@ -63,8 +69,19 @@ void blink(unsigned long i, int t1, int t2) {
   }
 }
 
+void send_syslog(const char* message) {
+  if (WiFi.status() == WL_CONNECTED) {
+    syslogUdp.beginPacket(SYSLOG_SERVER, SYSLOG_PORT);
+    syslogUdp.print("<14>ESP8266-Watchdog: ");
+    syslogUdp.print(message);
+    syslogUdp.endPacket();
+  }
+}
+
 void restart_router(void) {
   Serial.println("Turn off router");
+  send_syslog("NTP/WiFi connection failed. Power cycling router.");
+  delay(100); // Allow UDP packet to send
   digitalWrite(RELAY, HIGH);   // Turn relay on, disconnect router power
   blink(10, 250, 250);
   Serial.println("Turn on router");
@@ -115,8 +132,9 @@ void loop() {
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
 
-    // Restart UDP socket on reconnection
+    // Restart UDP sockets on reconnection
     udp.stop();
+    syslogUdp.stop();
     Serial.println("Starting UDP");
     if (udp.begin(localPort)) {
       Serial.print("Local port: ");
@@ -124,12 +142,15 @@ void loop() {
     } else {
       Serial.println("Failed to start UDP");
     }
+    syslogUdp.begin(localPort + 1);
+    send_syslog("WiFi connected and watchdog logging active");
   }
 
   // Lookup the IP address for the host name
   Serial.println("Resolving NTP address...");
   if (!WiFi.hostByName(ntpServerName, timeServerIP)) {
     Serial.println("DNS lookup failed.");
+    send_syslog("DNS lookup failed");
     retryCount++;
     if (retryCount > RETRY) {
       retryCount = 0;
@@ -151,6 +172,10 @@ void loop() {
     Serial.print("no packet yet, retry ");
     Serial.println(retryCount);
     
+    char syslogMsg[64];
+    snprintf(syslogMsg, sizeof(syslogMsg), "NTP query failed, retry %d/%d", retryCount + 1, RETRY);
+    send_syslog(syslogMsg);
+
     retryCount++;
     if (retryCount > RETRY) {
       retryCount = 0;
@@ -160,6 +185,7 @@ void loop() {
     retryCount = 0;
     Serial.print("packet received, length=");
     Serial.println(cb);
+    send_syslog("NTP query successful");
     // We've received a packet, read the data from it
     udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
 
