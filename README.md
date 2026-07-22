@@ -13,7 +13,7 @@ An ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via *
    - Web Dashboard on Port 80 (`http://<DEVICE_IP>/`).
    - JSON REST API endpoint at `http://<DEVICE_IP>/status` returning real-time status, uptime, Wi-Fi RSSI, state machine state, and fail counts.
 3. **Home Assistant Integration**:
-   - Built-in support for Home Assistant REST & Template Sensors (`hass-5317` or any HA instance).
+   - Built-in support for Home Assistant REST & Template Sensors (Home Assistant UI integration).
    - Automatic HTTP POST heartbeat client.
 4. **Hardware Task Watchdog (WDT)**:
    - Configured with `esp_task_wdt` (ESP32-S3) / `ESP.wdtFeed()` (ESP8266) to prevent CPU lockups or firmware freezes.
