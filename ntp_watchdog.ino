@@ -1,5 +1,5 @@
 /*
-  WiFi Router Watchdog with NTP, ArduinoOTA, and Hardware Task Watchdog
+  WiFi Router Watchdog with NTP, ArduinoOTA, Hardware Task WDT & Web/HASS API
   Supports ESP32-S3 (ESP32-S3 SuperMini) and ESP8266 (NodeMCU v2)
 */
 
@@ -8,18 +8,24 @@
   #include <WiFiUdp.h>
   #include <ArduinoOTA.h>
   #include <esp_task_wdt.h>
+  #include <WebServer.h>
+  #include <HTTPClient.h>
   #define WDT_TIMEOUT_SEC 15
+  WebServer server(80);
 #elif defined(ESP8266) || defined(ARDUINO_ARCH_ESP8266)
   #include <ESP8266WiFi.h>
   #include <WiFiUdp.h>
   #include <ArduinoOTA.h>
+  #include <ESP8266WebServer.h>
+  #include <ESP8266HTTPClient.h>
+  ESP8266WebServer server(80);
 #else
   #error "Unsupported platform! Please use ESP32 or ESP8266."
 #endif
 
 #ifndef STASSID
-#define STASSID "YOUR_WIFI_SSID"
-#define STAPSK  "YOUR_WIFI_PASSWORD"
+#define STASSID "BAOBAO-IoT"
+#define STAPSK  "TRZRI4KBaEZI36yLf4jLfodD"
 #endif
 
 #if defined(BOARD_ESP32S3_SUPERMINI) || defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -42,8 +48,12 @@
 #define MAX_RETRY_COUNT   (10)
 
 #ifndef SYSLOG_SERVER
-#define SYSLOG_SERVER "192.168.1.50"
+#define SYSLOG_SERVER "10.7.40.221"
 #define SYSLOG_PORT   514
+#endif
+
+#ifndef HASS_WEBHOOK_URL
+#define HASS_WEBHOOK_URL "http://10.7.40.221:8123/api/webhook/wifi_router_watchdog_heartbeat"
 #endif
 
 const char* ssid      = STASSID;
@@ -68,8 +78,33 @@ enum WatchdogState {
 WatchdogState currentState = STATE_INIT;
 unsigned long stateTimer = 0;
 unsigned long lastPollTime = 0;
+unsigned long lastHeartbeatTime = 0;
 unsigned long cooldownStartTime = 0;
+unsigned long lastNtpEpoch = 0;
 int retryCount = 0;
+
+String get_state_name(WatchdogState st) {
+  switch (st) {
+    case STATE_INIT: return "INIT";
+    case STATE_WAIT_WIFI: return "WAIT_WIFI";
+    case STATE_POLL_NTP: return "POLL_NTP";
+    case STATE_POWER_CYCLE: return "POWER_CYCLE";
+    case STATE_COOLDOWN: return "COOLDOWN";
+    default: return "UNKNOWN";
+  }
+}
+
+String get_formatted_uptime() {
+  unsigned long totalSeconds = millis() / 1000;
+  unsigned long days = totalSeconds / 86400;
+  unsigned long hours = (totalSeconds % 86400) / 3600;
+  unsigned long minutes = (totalSeconds % 3600) / 60;
+  unsigned long seconds = totalSeconds % 60;
+
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%lud %02luh %02lum %02lus", days, hours, minutes, seconds);
+  return String(buf);
+}
 
 void feed_hardware_wdt() {
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
@@ -85,6 +120,27 @@ void send_syslog(const char* message) {
     syslogUdp.print("<14>Watchdog-ESP: ");
     syslogUdp.print(message);
     syslogUdp.endPacket();
+  }
+}
+
+void send_ha_heartbeat() {
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;
+    HTTPClient http;
+    if (http.begin(client, HASS_WEBHOOK_URL)) {
+      http.addHeader("Content-Type", "application/json");
+      String payload = "{\"status\":\"online\",\"uptime_seconds\":";
+      payload += String(millis() / 1000);
+      payload += ",\"uptime\":\"" + get_formatted_uptime() + "\",\"rssi\":";
+      payload += String(WiFi.RSSI());
+      payload += ",\"state\":\"" + get_state_name(currentState) + "\",\"retry_count\":";
+      payload += String(retryCount);
+      payload += ",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+
+      int code = http.POST(payload);
+      http.end();
+      Serial.printf("[HASS] Heartbeat sent. Code: %d\n", code);
+    }
   }
 }
 
@@ -104,6 +160,64 @@ void sendNTPpacket(IPAddress& address) {
   udp.endPacket();
 }
 
+void handle_status_json() {
+  String json = "{\"status\":\"online\",\"uptime_seconds\":";
+  json += String(millis() / 1000);
+  json += ",\"uptime\":\"" + get_formatted_uptime() + "\",\"rssi\":";
+  json += String(WiFi.RSSI());
+  json += ",\"state\":\"" + get_state_name(currentState) + "\",\"retry_count\":";
+  json += String(retryCount);
+  json += ",\"max_retries\":";
+  json += String(MAX_RETRY_COUNT);
+  json += ",\"last_epoch\":";
+  json += String(lastNtpEpoch);
+  json += ",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+
+  server.send(200, "application/json", json);
+}
+
+void handle_root() {
+  String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">";
+  html += "<title>Wi-Fi Router Watchdog</title>";
+  html += "<style>body{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;background:#0f172a;color:#f8fafc;margin:0;padding:20px;}";
+  html += ".card{background:#1e293b;border-radius:12px;padding:24px;max-width:500px;margin:20px auto;box-shadow:0 10px 15px -3px rgba(0,0,0,0.3);}";
+  html += "h1{color:#38bdf8;font-size:1.5rem;margin-top:0;}";
+  html += ".stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #334155;}";
+  html += ".value{font-weight:bold;color:#34d399;}";
+  html += ".btn{display:inline-block;background:#ef4444;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:15px;text-align:center;}";
+  html += "</style></head><body>";
+  html += "<div class=\"card\">";
+  html += "<h1>🛠️ Wi-Fi Router Watchdog</h1>";
+  html += "<div class=\"stat\"><span>Status</span><span class=\"value\">ONLINE</span></div>";
+  html += "<div class=\"stat\"><span>Uptime</span><span class=\"value\'>" + get_formatted_uptime() + "</span></div>";
+  html += "<div class=\"stat\"><span>Wi-Fi Signal</span><span class=\"value\'>" + String(WiFi.RSSI()) + " dBm</span></div>";
+  html += "<div class=\"stat\"><span>State</span><span class=\"value\'>" + get_state_name(currentState) + "</span></div>";
+  html += "<div class=\"stat\"><span>Retries</span><span class=\"value\'>" + String(retryCount) + " / " + String(MAX_RETRY_COUNT) + "</span></div>";
+  html += "<div class=\"stat\"><span>IP Address</span><span class=\"value\'>" + WiFi.localIP().toString() + "</span></div>";
+  html += "<a href=\"/reboot\" class=\"btn\">Reboot ESP32</a>";
+  html += "</div></body></html>";
+
+  server.send(200, "text/html", html);
+}
+
+void handle_reboot() {
+  server.send(200, "text/plain", "Rebooting ESP32 Watchdog...");
+  delay(1000);
+#if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
+  ESP.restart();
+#elif defined(ESP8266) || defined(ARDUINO_ARCH_ESP8266)
+  ESP.reset();
+#endif
+}
+
+void setup_web_server() {
+  server.on("/", handle_root);
+  server.on("/status", handle_status_json);
+  server.on("/reboot", handle_reboot);
+  server.begin();
+  Serial.println("HTTP Server started on port 80");
+}
+
 void setup_ota() {
   ArduinoOTA.setHostname("wifi-router-watchdog");
   ArduinoOTA.setPassword("admin");
@@ -120,11 +234,6 @@ void setup_ota() {
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("OTA Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
 }
@@ -165,6 +274,9 @@ void setup() {
 void loop() {
   feed_hardware_wdt();
   ArduinoOTA.handle();
+  if (WiFi.status() == WL_CONNECTED) {
+    server.handleClient();
+  }
 
   unsigned long currentMillis = millis();
 
@@ -180,10 +292,13 @@ void loop() {
         syslogUdp.begin(localPort + 1);
 
         setup_ota();
+        setup_web_server();
         send_syslog("Watchdog booted and connected to WiFi");
+        send_ha_heartbeat();
 
         currentState = STATE_POLL_NTP;
         lastPollTime = millis() - (DELAY_POLL_SEC * 1000);
+        lastHeartbeatTime = millis();
       } else if (currentMillis - stateTimer >= (WAIT_CONNECT_SEC * 1000)) {
         Serial.println("\nWiFi Connection Timeout. Triggering Power Cycle.");
         send_syslog("WiFi connection timeout");
@@ -199,6 +314,12 @@ void loop() {
         stateTimer = millis();
         currentState = STATE_WAIT_WIFI;
         break;
+      }
+
+      // Periodic Heartbeat every 60s
+      if (currentMillis - lastHeartbeatTime >= (DELAY_POLL_SEC * 1000)) {
+        lastHeartbeatTime = currentMillis;
+        send_ha_heartbeat();
       }
 
       if (currentMillis - lastPollTime >= (DELAY_POLL_SEC * 1000)) {
@@ -237,9 +358,9 @@ void loop() {
           unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
           unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
           unsigned long secsSince1900 = highWord << 16 | lowWord;
-          unsigned long epoch = secsSince1900 - 2208988800UL;
+          lastNtpEpoch = secsSince1900 - 2208988800UL;
 
-          Serial.printf("NTP Response OK. Unix Epoch: %lu\n", epoch);
+          Serial.printf("NTP Response OK. Unix Epoch: %lu\n", lastNtpEpoch);
           digitalWrite(LED_PIN, !digitalRead(LED_PIN));
         }
       }
