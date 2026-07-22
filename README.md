@@ -1,6 +1,6 @@
 # 🛠️ Wi-Fi Router Watchdog (NTP, ArduinoOTA, Syslog, Web API & Task WDT)
 
-An ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via **UDP NTP timestamp queries** and logs watchdog events to a remote **UDP Syslog Server**. If persistent network failures or DNS resolution loss occur (`MAX_RETRY_COUNT = 10`), it power-cycles the router via a relay connected to the **Normally Closed (NC)** power loop, followed by an asynchronous 24-hour cooldown.
+An ESP32 / ESP32-S2 / ESP32-C3 / ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via **UDP NTP timestamp queries** and logs watchdog events to a remote **UDP Syslog Server**. If persistent network failures or DNS resolution loss occur (`MAX_RETRY_COUNT = 10`), it power-cycles the router via a relay connected to the **Normally Closed (NC)** power loop, followed by an asynchronous 24-hour cooldown.
 
 ---
 
@@ -8,6 +8,9 @@ An ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via *
 
 1. **Multi-Architecture Support**:
    - **ESP32-S3 SuperMini** (`esp32-s3-devkitc-1`, 4MB Flash, CDC USB Serial).
+   - **ESP32 Standard DevKit** (`esp32dev`, Xtensa Dual-Core).
+   - **ESP32-S2 DevKit** (`esp32-s2-saola-1`, Xtensa Single-Core).
+   - **ESP32-C3 DevKit** (`esp32-c3-devkitm-1`, RISC-V Single-Core).
    - **ESP8266** (`nodemcuv2`).
 2. **Web Server & REST API**:
    - Web Dashboard on Port 80 (`http://<WATCHDOG_IP>/`).
@@ -17,7 +20,7 @@ An ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via *
    - Built-in support for Home Assistant REST & Template Sensors and Lovelace Dashboard cards.
    - Automatic HTTP POST heartbeat client.
 4. **Hardware Task Watchdog (WDT)**:
-   - Configured with `esp_task_wdt` (ESP32-S3) / `ESP.wdtFeed()` (ESP8266) to prevent CPU lockups or firmware freezes.
+   - Configured with `esp_task_wdt` (ESP32 family) / `ESP.wdtFeed()` (ESP8266) to prevent CPU lockups or firmware freezes.
 5. **ArduinoOTA Support**:
    - Wireless over-the-air firmware updates (Hostname: `wifi-router-watchdog`).
 6. **Non-Blocking State Machine**:
@@ -33,6 +36,18 @@ An ESP32-S3 / ESP8266 hardware watchdog that monitors network connectivity via *
 - **Relay Signal**: `GPIO 4`
 - **Status LED**: `GPIO 8` (Onboard LED)
 - **USB Interface**: `/dev/ttyACM0` (CDC Serial / JTAG)
+
+### ESP32-C3 DevKit / SuperMini
+- **Relay Signal**: `GPIO 4`
+- **Status LED**: `GPIO 8`
+
+### ESP32-S2 DevKit
+- **Relay Signal**: `GPIO 4`
+- **Status LED**: `GPIO 15`
+
+### ESP32 Dev Module
+- **Relay Signal**: `GPIO 4`
+- **Status LED**: `GPIO 2`
 
 ### NodeMCU v2 (ESP8266)
 - **Relay Signal**: `D2` (`GPIO 4`)
@@ -51,21 +66,30 @@ AC Power Source -> (NC Terminal) Relay Module (Common Terminal) -> Wi-Fi Router 
 
 ## 🚀 Building & Flashing with PlatformIO
 
-Compiling and uploading using PlatformIO:
+Compiling and uploading using PlatformIO inside Distrobox container `resolute`:
 
 ### 1. Compile Firmware
 ```bash
-# Compile ESP32-S3 SuperMini environment
+# ESP32-S3 SuperMini
 pio run -e esp32-s3-supermini
 
-# Compile NodeMCU ESP8266 environment
+# ESP32 Standard DevKit
+pio run -e esp32dev
+
+# ESP32-S2 DevKit
+pio run -e esp32-s2
+
+# ESP32-C3 DevKit
+pio run -e esp32-c3
+
+# NodeMCU ESP8266
 pio run -e nodemcuv2
 ```
 
 ### 2. Flash via USB Serial
 ```bash
-# Upload to ESP32-S3 attached on /dev/ttyACM0
-pio run -e esp32-s3-supermini -t upload
+# Upload to target environment (e.g. ESP32-C3)
+pio run -e esp32-c3 -t upload
 ```
 
 ### 3. Wireless OTA Update

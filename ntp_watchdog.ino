@@ -1,6 +1,6 @@
 /*
   WiFi Router Watchdog with NTP, ArduinoOTA, Hardware Task WDT & Web/HASS API
-  Supports ESP32-S3 (ESP32-S3 SuperMini) and ESP8266 (NodeMCU v2)
+  Supports ESP32, ESP32-S2, ESP32-C3, ESP32-S3, and ESP8266 (NodeMCU v2)
 */
 
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
@@ -20,7 +20,7 @@
   #include <ESP8266HTTPClient.h>
   ESP8266WebServer server(80);
 #else
-  #error "Unsupported platform! Please use ESP32 or ESP8266."
+  #error "Unsupported platform! Please use ESP32 / ESP32-S2 / ESP32-C3 / ESP32-S3 or ESP8266."
 #endif
 
 #ifndef STASSID
@@ -35,11 +35,20 @@
 #if defined(BOARD_ESP32S3_SUPERMINI) || defined(CONFIG_IDF_TARGET_ESP32S3)
   #define LED_PIN   8   // Onboard LED on ESP32-S3 SuperMini (GPIO8)
   #define RELAY_PIN 4   // Relay control pin (GPIO4)
+#elif defined(BOARD_ESP32C3_DEVKIT) || defined(CONFIG_IDF_TARGET_ESP32C3)
+  #define LED_PIN   8   // Onboard LED on ESP32-C3 SuperMini/DevKit (GPIO8)
+  #define RELAY_PIN 4   // Relay control pin (GPIO4)
+#elif defined(BOARD_ESP32S2_DEV) || defined(CONFIG_IDF_TARGET_ESP32S2)
+  #define LED_PIN   15  // Onboard LED on ESP32-S2 (GPIO15)
+  #define RELAY_PIN 4   // Relay control pin (GPIO4)
+#elif defined(BOARD_ESP32_DEV) || defined(CONFIG_IDF_TARGET_ESP32)
+  #define LED_PIN   2   // Onboard LED on ESP32 DevKit (GPIO2)
+  #define RELAY_PIN 4   // Relay control pin (GPIO4)
 #elif defined(BOARD_ESP8266_NODEMCU) || defined(ESP8266)
   #define LED_PIN   D4  // NodeMCU onboard LED (GPIO2 / D4)
   #define RELAY_PIN D2  // NodeMCU relay pin (GPIO4 / D2)
 #else
-  #define LED_PIN   8
+  #define LED_PIN   2
   #define RELAY_PIN 4
 #endif
 
@@ -198,14 +207,14 @@ void handle_root() {
   html += "<div class=\"stat\"><span>State</span><span class=\"value\'>" + get_state_name(currentState) + "</span></div>";
   html += "<div class=\"stat\"><span>Retries</span><span class=\"value\'>" + String(retryCount) + " / " + String(MAX_RETRY_COUNT) + "</span></div>";
   html += "<div class=\"stat\"><span>IP Address</span><span class=\"value\'>" + WiFi.localIP().toString() + "</span></div>";
-  html += "<a href=\"/reboot\" class=\"btn\">Reboot ESP32</a>";
+  html += "<a href=\"/reboot\" class=\"btn\">Reboot ESP Watchdog</a>";
   html += "</div></body></html>";
 
   server.send(200, "text/html", html);
 }
 
 void handle_reboot() {
-  server.send(200, "text/plain", "Rebooting ESP32 Watchdog...");
+  server.send(200, "text/plain", "Rebooting ESP Watchdog...");
   delay(1000);
 #if defined(ESP32) || defined(ARDUINO_ARCH_ESP32)
   ESP.restart();
