@@ -28,6 +28,10 @@
 #define STAPSK  "YOUR_WIFI_PASSWORD"
 #endif
 
+#ifndef OTA_PASSWORD
+#define OTA_PASSWORD "YOUR_OTA_PASSWORD"
+#endif
+
 #if defined(BOARD_ESP32S3_SUPERMINI) || defined(CONFIG_IDF_TARGET_ESP32S3)
   #define LED_PIN   8   // Onboard LED on ESP32-S3 SuperMini (GPIO8)
   #define RELAY_PIN 4   // Relay control pin (GPIO4)
@@ -220,7 +224,7 @@ void setup_web_server() {
 
 void setup_ota() {
   ArduinoOTA.setHostname("wifi-router-watchdog");
-  ArduinoOTA.setPassword("admin");
+  ArduinoOTA.setPassword(OTA_PASSWORD);
 
   ArduinoOTA.onStart([]() {
     String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
