@@ -24,8 +24,8 @@
 #endif
 
 #ifndef STASSID
-#define STASSID "BAOBAO-IoT"
-#define STAPSK  "TRZRI4KBaEZI36yLf4jLfodD"
+#define STASSID "YOUR_WIFI_SSID"
+#define STAPSK  "YOUR_WIFI_PASSWORD"
 #endif
 
 #if defined(BOARD_ESP32S3_SUPERMINI) || defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -48,12 +48,12 @@
 #define MAX_RETRY_COUNT   (10)
 
 #ifndef SYSLOG_SERVER
-#define SYSLOG_SERVER "10.7.40.221"
+#define SYSLOG_SERVER "192.168.1.50"
 #define SYSLOG_PORT   514
 #endif
 
 #ifndef HASS_WEBHOOK_URL
-#define HASS_WEBHOOK_URL "http://10.7.40.221:8123/api/webhook/wifi_router_watchdog_heartbeat"
+#define HASS_WEBHOOK_URL "http://192.168.1.50:8123/api/webhook/wifi_router_watchdog_heartbeat"
 #endif
 
 const char* ssid      = STASSID;
