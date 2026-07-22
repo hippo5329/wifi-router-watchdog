@@ -1,0 +1,82 @@
+# ==============================================================================
+# Home Assistant Helper Package: Wi-Fi Router Watchdog (NTP Watchdog)
+# ==============================================================================
+# Installation:
+# 1. Copy this file into your Home Assistant `/config/packages/ntp_watchdog.yaml` directory
+#    (Ensure `homeassistant: packages: !include_dir_named packages` is in configuration.yaml).
+# 2. Replace `<WATCHDOG_IP>` below with your Watchdog ESP32/ESP8266 IP address (e.g. 192.168.1.100).
+# 3. Reload YAML Configuration in Home Assistant Settings.
+# ==============================================================================
+
+sensor:
+  - platform: rest
+    name: "NTP Watchdog Status"
+    unique_id: ntp_watchdog_status
+    resource: "http://<WATCHDOG_IP>/status"
+    scan_interval: 10
+    timeout: 5
+    value_template: "{{ value_json.status }}"
+    json_attributes:
+      - status
+      - uptime_seconds
+      - uptime
+      - rssi
+      - state
+      - retry_count
+      - max_retries
+      - last_epoch
+      - ip
+
+template:
+  - sensor:
+      - name: "NTP Watchdog Uptime"
+        unique_id: ntp_watchdog_uptime
+        state: "{{ state_attr('sensor.ntp_watchdog_status', 'uptime') }}"
+        icon: mdi:clock-outline
+
+      - name: "NTP Watchdog Uptime Seconds"
+        unique_id: ntp_watchdog_uptime_seconds
+        state: "{{ state_attr('sensor.ntp_watchdog_status', 'uptime_seconds') }}"
+        unit_of_measurement: "s"
+        icon: mdi:timer-outline
+
+      - name: "NTP Watchdog Wi-Fi Signal"
+        unique_id: ntp_watchdog_wifi_signal
+        state: "{{ state_attr('sensor.ntp_watchdog_status', 'rssi') }}"
+        unit_of_measurement: "dBm"
+        device_class: signal_strength
+        icon: mdi:wifi
+
+      - name: "NTP Watchdog State"
+        unique_id: ntp_watchdog_state
+        state: "{{ state_attr('sensor.ntp_watchdog_status', 'state') }}"
+        icon: mdi:chip
+
+      - name: "NTP Watchdog Fail Count"
+        unique_id: ntp_watchdog_fail_count
+        state: "{{ state_attr('sensor.ntp_watchdog_status', 'retry_count') }}"
+        icon: mdi:alert-circle-outline
+
+# ==============================================================================
+# Lovelace Dashboard Card Configuration (Copy into Dashboard -> Add Card -> Manual)
+# ==============================================================================
+# type: entities
+# title: "🛠️ Wi-Fi Router Watchdog"
+# show_header_toggle: false
+# entities:
+#   - entity: sensor.ntp_watchdog_status
+#     name: Watchdog Status
+#     icon: mdi:check-circle-outline
+#   - entity: sensor.ntp_watchdog_uptime
+#     name: System Uptime
+#     icon: mdi:clock-outline
+#   - entity: sensor.ntp_watchdog_state
+#     name: Watchdog State
+#     icon: mdi:chip
+#   - entity: sensor.ntp_watchdog_wifi_signal
+#     name: Wi-Fi Signal Strength
+#     icon: mdi:wifi
+#   - entity: sensor.ntp_watchdog_fail_count
+#     name: NTP Retry Failures
+#     icon: mdi:alert-circle-outline
+# ==============================================================================
