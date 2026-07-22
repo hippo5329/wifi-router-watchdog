@@ -55,12 +55,73 @@ An ESP32 / ESP32-S2 / ESP32-C3 / ESP32-S3 / ESP8266 hardware watchdog that monit
 
 ---
 
-## 🔌 Wiring Diagram
+## 🔌 Wiring Diagram (Normally Closed / NC Power Loop)
 
+Using the **Normally Closed (NC)** contact ensures that under normal operating conditions (or if the ESP watchdog module loses power or resets), the relay remains closed and AC power flows continuously to the Wi-Fi router.
+
+```mermaid
+flowchart LR
+    subgraph ESP_Module["ESP Microcontroller (ESP32 / ESP8266)"]
+        VCC_ESP["5V / 3.3V Power Out"]
+        GND_ESP["GND Ground"]
+        GPIO_RELAY["GPIO 4 (Relay Signal Pin)"]
+    end
+
+    subgraph Relay_Module["5V Optocoupler Relay Module"]
+        subgraph Low_Voltage_Control["Low Voltage DC Control Side"]
+            VCC_RELAY["VCC"]
+            GND_RELAY["GND"]
+            IN_RELAY["IN (Control Signal)"]
+        end
+
+        subgraph High_Voltage_AC["High Voltage AC Terminal Block"]
+            COM["COM (Common Terminal)"]
+            NC["NC (Normally Closed Contact)"]
+            NO["NO (Normally Open - Unused)"]
+        end
+    end
+
+    subgraph AC_Power["110V/220V AC Power Mains"]
+        AC_L["AC Line / Hot (L)"]
+        AC_N["AC Neutral (N)"]
+    end
+
+    subgraph Router["Wi-Fi Router / Modem Power Supply"]
+        ROUTER_L["Power Adapter Line (L)"]
+        ROUTER_N["Power Adapter Neutral (N)"]
+    end
+
+    %% Low Voltage DC Connections
+    VCC_ESP -->|5V DC| VCC_RELAY
+    GND_ESP -->|GND| GND_RELAY
+    GPIO_RELAY -->|GPIO Control Signal| IN_RELAY
+
+    %% High Voltage AC NC Loop Connections
+    AC_L ==>|AC Line Hot| COM
+    NC ==>|NC Loop (Default Closed / Power ON)| ROUTER_L
+    AC_N ==>|Direct Neutral Wire| ROUTER_N
+
+    %% Styling
+    style COM fill:#fbbf24,stroke:#d97706,stroke-width:2px,color:#000
+    style NC fill:#34d399,stroke:#059669,stroke-width:2px,color:#000
+    style NO fill:#f87171,stroke:#dc2626,stroke-width:1px,color:#000
+    style Relay_Module fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style ESP_Module fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff
+    style Router fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff
+    style AC_Power fill:#450a0a,stroke:#f87171,stroke-width:2px,color:#fff
 ```
-AC Power Source -> (NC Terminal) Relay Module (Common Terminal) -> Wi-Fi Router / Modem Power Supply
-```
-*Note: Using Normally Closed (NC) wiring ensures that if the ESP watchdog is powered off or resetting, power continues to flow uninterrupted to the router.*
+
+### ⚡ Circuit Description
+1. **Low-Voltage DC Side**:
+   - **VCC / GND**: Connect ESP 5V and GND to Relay Module VCC and GND.
+   - **Signal (IN)**: Connect ESP `GPIO 4` to Relay `IN`.
+2. **High-Voltage AC Side (Normally Closed / NC Loop)**:
+   - **COM (Common)**: Connected to the incoming **AC Hot / Line (L)** wire.
+   - **NC (Normally Closed)**: Connected to the **Line (L)** terminal of the Wi-Fi router's AC power adapter.
+   - **Neutral (N)**: Connected directly from the AC outlet to the router's power adapter.
+3. **Behavior**:
+   - **Normal Operation (Relay De-energized)**: NC contact is closed $\rightarrow$ AC power flows to router.
+   - **Power Cycle Triggered (Relay Energized for 5s)**: Relay pulls NC open $\rightarrow$ AC power to router is cut off for 5 seconds to force hard reboot.
 
 ---
 
