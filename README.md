@@ -34,7 +34,7 @@ An ESP32 / ESP32-S2 / ESP32-C3 / ESP32-S3 / ESP8266 hardware watchdog that monit
 
 ### ESP32-S3 SuperMini
 - **Relay Signal**: `GPIO 4`
-- **Status LED**: `GPIO 8` (Onboard LED)
+- **Status LED**: `GPIO 48` (Onboard LED)
 - **USB Interface**: `/dev/ttyACM0` (CDC Serial / JTAG)
 
 ### ESP32-C3 DevKit / SuperMini

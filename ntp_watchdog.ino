@@ -33,10 +33,10 @@
 #endif
 
 #if defined(BOARD_ESP32S3_SUPERMINI) || defined(CONFIG_IDF_TARGET_ESP32S3)
-  #define LED_PIN   8   // Onboard LED on ESP32-S3 SuperMini (GPIO8)
+  #define LED_PIN   48   // Onboard LED on ESP32-S3 SuperMini (GPIO48)
   #define RELAY_PIN 4   // Relay control pin (GPIO4)
 #elif defined(BOARD_ESP32C3_DEVKIT) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define LED_PIN   8   // Onboard LED on ESP32-C3 SuperMini/DevKit (GPIO8)
+  #define LED_PIN   48   // Onboard LED on ESP32-S3 SuperMini (GPIO48)
   #define RELAY_PIN 4   // Relay control pin (GPIO4)
 #elif defined(BOARD_ESP32S2_DEV) || defined(CONFIG_IDF_TARGET_ESP32S2)
   #define LED_PIN   15  // Onboard LED on ESP32-S2 (GPIO15)
@@ -49,6 +49,7 @@
   #define RELAY_PIN D2  // NodeMCU relay pin (GPIO4 / D2)
 #else
   #define LED_PIN   2
+  #define LED_PIN   48   // Onboard LED on ESP32-S3 SuperMini (GPIO48)
   #define RELAY_PIN 4
 #endif
 
